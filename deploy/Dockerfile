@@ -6,8 +6,8 @@ WORKDIR /app
 # this lengthy step if other files have changed.
 COPY gym/requirements.txt gym/requirements.txt
 RUN pip install -r gym/requirements.txt
-COPY mujoco-py/requirements.txt mujoco-py/requirements.txt
-RUN pip install -r mujoco-py/requirements.txt
+#COPY mujoco-py/requirements.txt mujoco-py/requirements.txt
+#RUN pip install -r mujoco-py/requirements.txt
 COPY rosbridge/deploy/prod_requirements.txt rosbridge/deploy/prod_requirements.txt
 RUN pip install -r rosbridge/deploy/prod_requirements.txt
 
