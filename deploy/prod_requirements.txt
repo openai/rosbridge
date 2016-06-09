@@ -1,0 +1,20 @@
+--index-url https://pypi.python.org/simple/
+imageio
+numpy>=1.10.4
+scipy
+jupyter
+readchar
+tabulate
+nose>=1.3.7
+Pillow
+python-gflags
+ujson
+matplotlib
+pygtail>=0.6.1
+requests
+PyYAML>=3.11
+watchdog>=0.8.3
+rethinkdb
+redis
+wand
+PyOpenGL>=3.1.0

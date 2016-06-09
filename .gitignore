@@ -1,0 +1,5 @@
+*.pyc
+/.dockerimage
+/secrets/
+.gitfiles
+.gitsitchy
