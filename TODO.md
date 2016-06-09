@@ -2,13 +2,14 @@
 
 
 ### WIP
-
   * get catkin package files back from container
    - or run catkin on laptop. Prolly better within container
   * Figure out where log files will go.
 
 ### Architecture issues
   * Integrate into gym or separate package? Plugin? See how pachi does it.
+  * Probably a separate long-lived process that I connect to with a websocket. One at a time (others get rejected)
+  * Need two interfaces: high- and low-level. High uses (control_msgs/FollowJointTrajectory). Not clear how to get low.
   * Show sketch of operation around #robotics.
     - also for Dex4
   * How to do logging & replay? Leave up to agent?
