@@ -1,4 +1,7 @@
-FROM openai/ros:latest
+FROM quay.io/openai/ros:latest
+
+# Fetch robot with gazebo demo
+RUN apt-get install -y ros-indigo-fetch-gazebo-demo
 
 WORKDIR /app
 
@@ -20,3 +23,5 @@ ENV PYTHONPATH=/app:/app/gym:/app/mujoco-py:/app/kluster/lib:/app/tlbcore/common
 COPY . .
 
 WORKDIR /app/rosbridge
+
+RUN /bin/bash -c ". /opt/ros/indigo/setup.bash && catkin_make && catkin_make install"

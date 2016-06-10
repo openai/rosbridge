@@ -2,7 +2,24 @@
 Bridge from Gym to ROS robots
 
 
+## Fetch simulator
+```
+$ docker run -t -i quay.io/openai/rosbridge:latest /bin/bash
+# roscore &
+# vncserver
+ ... enter password
+# export DISPLAY=:1
+# roslaunch fetch_gazebo simulation.launch
+# export ROS_MASTER_URI=http://`hostname`:11311
+# rosrun rviz rviz
+# roscd fetch_navigation/config
+# rviz -d navigation.rviz
+```
 
+Demo:
+```
+# roslaunch fetch_gazebo_demo demo.launch
+```
 
 ## Fetch high level
  * See [Docs](http://docs.fetchrobotics.com/), especially the [API](http://docs.fetchrobotics.com/api_overview.html)
@@ -33,3 +50,5 @@ Bridge from Gym to ROS robots
     - turn a single grip strength number into position and effort, where <=0 means open and >0 means closed with corresponding effort
 
 ## Fetch low level
+  * Update position targerts as fast as possible?
+  *
