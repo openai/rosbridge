@@ -39,6 +39,7 @@ Demo:
 
 ### Ros Topics
   * Subscribe to `head_camera/depth_registered/points`, of type   [sensor_msgs/PointCloud2](http://docs.ros.org/api/sensor_msgs/html/msg/PointCloud2.html)
+    - Note: `head_camera/depth/*` not available in simulator.
   * Subscribe to `base_scan` of type [sensor_msgs/LaserScan](http://docs.ros.org/api/sensor_msgs/html/msg/LaserScan.html)
   * Subscribe to `imu` of type [sensor_msgs/Imu](http://docs.ros.org/api/sensor_msgs/html/msg/Imu.html)
 
