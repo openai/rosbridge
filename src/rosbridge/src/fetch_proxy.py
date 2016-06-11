@@ -17,6 +17,7 @@ logger.setLevel(logging.INFO)
 class GymProxyServer(WebSocket):
     def opened(self):
         logger.info('GymProxyServer opened')
+        self.start_robot()
         # WRITEME: fire up ROS, etc.
         pass
 
@@ -30,7 +31,7 @@ class GymProxyServer(WebSocket):
             rpc_out = ujson.dumps({
                 'id': rpc_id,
                 'error': error,
-                'result': result
+                'result': result,
             })
             self.send(rpc_out)
         try:
@@ -50,6 +51,26 @@ class GymProxyServer(WebSocket):
     def closed(self, code, reason=None):
         logger.info('GymProxyServer closed %s %s', code, reason)
         pass
+
+    def start_robot(self):
+        # override me
+        pass
+
+    def handle_reset(self, params):
+        # override me
+        return {
+            'obs': [0.0],
+        }
+
+    def handle_step(self, params):
+        # override me
+        return {
+            'obs': [0.0],
+            'reward': 0.0,
+            'info': {},
+            'done': False,
+        }
+
 
 
 cherrypy.config.update({'server.socket_port': 9000})

@@ -5,6 +5,7 @@
   * get catkin package files back from container
    - or run catkin on laptop. Prolly better within container
   * Figure out where log files will go.
+  * Move ProxyServer and ProxyClient to a gym/utils class
 
 ### Architecture issues
   * Integrate into gym or separate package? Plugin? See how pachi does it.
