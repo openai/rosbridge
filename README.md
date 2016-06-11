@@ -2,7 +2,11 @@
 Bridge from Gym to ROS robots
 
 
-## Fetch simulator
+## Deployment
+
+There are two deployment types: a self-container docker which runs a simulation, and a docker that talks to a robot.
+
+
 ```
 $ docker run -t -i quay.io/openai/rosbridge:latest /bin/bash
 # roscore &
@@ -16,10 +20,16 @@ $ docker run -t -i quay.io/openai/rosbridge:latest /bin/bash
 # rviz -d navigation.rviz
 ```
 
+
+## Fetch simulator
+
 Demo:
 ```
 # roslaunch fetch_gazebo_demo demo.launch
 ```
+
+### Challenges:
+ * How to capture and replay rviz output? Can render return some sort of key into the log which can be rendered later on demand rather than in real-time?
 
 ## Fetch high level
  * See [Docs](http://docs.fetchrobotics.com/), especially the [API](http://docs.fetchrobotics.com/api_overview.html)
@@ -51,5 +61,5 @@ Demo:
     - turn a single grip strength number into position and effort, where <=0 means open and >0 means closed with corresponding effort
 
 ## Fetch low level
-  * Update position targerts as fast as possible?
+  * Update position targets as fast as possible?
   *
