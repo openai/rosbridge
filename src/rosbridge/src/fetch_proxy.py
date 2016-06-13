@@ -1,93 +1,72 @@
 #!/usr/local/bin/python
 import math, random, time, logging, re, base64, argparse, collections, sys, os
 import numpy as np
-import ujson
-from wand.image import Image
 import gym
-import wsaccel
-wsaccel.patch_ws4py()
-import cherrypy
-from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
-from ws4py.websocket import WebSocket
+from gym.spaces import Box, Tuple
+import gym.envs.proxy.server as server
+import rospy
+from moveit_msgs.msg import MoveItErrorCodes
+from moveit_python import MoveGroupInterface, PlanningSceneInterface
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class GymProxyServer(WebSocket):
-    def opened(self):
-        logger.info('GymProxyServer opened')
-        self.start_robot()
-        # WRITEME: fire up ROS, etc.
-        pass
+move_group=None
+planning_scene=None
+joint_names=None
 
-    def received_message(self, message):
-        rpc = ujson.loads(message.data)
-        logger.info('rpc > %s', rpc)
-        rpc_method = rpc.get('method', None)
-        rpc_params = rpc.get('params', None)
-        rpc_id = rpc.get('id', None)
-        def reply(result, error=None):
-            rpc_out = ujson.dumps({
-                'id': rpc_id,
-                'error': error,
-                'result': result,
-            })
-            self.send(rpc_out)
-        try:
-            if rpc_method == 'reset':
-                reply(self.handle_reset(rpc_params))
-            elif rpc_method == 'step':
-                reply(self.handle_step(rpc_params))
-            elif rpc_method == 'close':
-                self.close(reason='requested')
-            else:
-                raise Exception('unknown method %s' % rpc_method)
-        except:
-            ex = sys.exc_info()[0]
-            logger.error('rpc_method=%s ex=%s', rpc_method, ex)
-            reply(None, ex)
+def setup_node():
+    global move_group, planning_scene, joint_names
+    logger.info('Setting up FetchRobotGymEnv ROS node...')
+    rospy.init_node('FetchRobotGymEnv')
+    move_group = MoveGroupInterface('arm_with_torso', 'base_link')
 
-    def closed(self, code, reason=None):
-        logger.info('GymProxyServer closed %s %s', code, reason)
-        pass
+    planning_scene = PlanningSceneInterface('base_link')
+    planning_scene.removeCollisionObject('my_front_ground')
+    planning_scene.removeCollisionObject('my_back_ground')
+    planning_scene.removeCollisionObject('my_right_ground')
+    planning_scene.removeCollisionObject('my_left_ground')
+    planning_scene.addCube('my_front_ground', 2, 1.1, 0.0, -1.0)
+    planning_scene.addCube('my_back_ground', 2, -1.2, 0.0, -1.0)
+    planning_scene.addCube('my_left_ground', 2, 0.0, 1.2, -1.0)
+    planning_scene.addCube('my_right_ground', 2, 0.0, -1.2, -1.0)
 
-    def start_robot(self):
-        # override me
-        pass
+    joint_names = [
+        'torso_lift_joint', 'shoulder_pan_joint',
+        'shoulder_lift_joint', 'upperarm_roll_joint',
+        'elbow_flex_joint', 'forearm_roll_joint',
+        'wrist_flex_joint', 'wrist_roll_joint']
 
-    def handle_reset(self, params):
-        # override me
-        return {
-            'obs': [0.0],
-        }
+    logger.info('FetchRobotGymEnv ROS node running')
 
-    def handle_step(self, params):
-        # override me
-        return {
-            'obs': [0.0],
-            'reward': 0.0,
-            'info': {},
-            'done': False,
-        }
+class FetchRobotEnv:
+    def __init__(self):
+        self.setup_node()
+        self.observation_space = Box(-1, 1, [joint_names.length])
+        self.action_space = Box(-1, 1, [joint_names.length])
+        self.reward_range = [-1,+1]
 
+    def reset(self):
+        move_group.get_move_action().cancel_all_goals()
+        obs = np.array([0.0])
+        return obs
 
+    def step(self, action):
+        move_group.moveToJointPosition(joint_names, action, wait=False)
+        move_group.get_move_action().wait_for_result()
+        result = move_group.get_move_action().get_result()
+        logger.info('moveit result %s', result)
 
-cherrypy.config.update({'server.socket_port': 9000})
-WebSocketPlugin(cherrypy.engine).subscribe()
-cherrypy.tools.websocket = WebSocketTool()
+        obs = np.array(result)
+        reward = 0.0
+        done = False
+        info = {}
+        return obs, reward, done, info
 
-class WebRoot(object):
-    @cherrypy.expose
-    def index(self):
-        return 'some HTML with a websocket javascript connection'
+    def render(self, mode='human', close=False):
+        return np.zeros([24,32,3])
 
-    @cherrypy.expose
-    def fr(self):
-        # you can access the class instance through
-        handler = cherrypy.request.ws_handler
-
-cherrypy.quickstart(WebRoot(), '/', config={'/fr': {
-    'tools.websocket.on': True,
-    'tools.websocket.handler_cls': GymProxyServer
-}})
+setup_node()
+server.register(id='FetchRobot-v0', cls=FetchRobotEnv)
+server.serve_forever(port=9000)

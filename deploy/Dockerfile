@@ -24,4 +24,6 @@ COPY . .
 
 WORKDIR /app/rosbridge
 
-RUN ["/bin/bash", "-c", ". /opt/ros/indigo/setup.bash && catkin_make && catkin_make install"]
+EXPOSE 9000
+
+#RUN ["/bin/bash", "-c", ". /opt/ros/indigo/setup.bash && catkin_make && catkin_make install"]
