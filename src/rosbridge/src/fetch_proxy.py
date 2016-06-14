@@ -17,20 +17,26 @@ planning_scene=None
 joint_names=None
 
 def setup_node():
-    global move_group, planning_scene, joint_names
-    logger.info('Setting up FetchRobotGymEnv ROS node...')
-    rospy.init_node('FetchRobotGymEnv')
-    move_group = MoveGroupInterface('arm_with_torso', 'base_link')
+    if 1:
+        global move_group, planning_scene, joint_names
+        logger.info('Creating FetchRobotGymEnv node...')
+        rospy.init_node('FetchRobotGymEnv') # After this, logging goes to ~/.ros/log/FetchRobotGymEnv.log
+        logger.info('Connected to ROS as FetchRobotGymEnv')
+        if 1:
+            move_group = MoveGroupInterface('arm_with_torso', 'base_link')
 
-    planning_scene = PlanningSceneInterface('base_link')
-    planning_scene.removeCollisionObject('my_front_ground')
-    planning_scene.removeCollisionObject('my_back_ground')
-    planning_scene.removeCollisionObject('my_right_ground')
-    planning_scene.removeCollisionObject('my_left_ground')
-    planning_scene.addCube('my_front_ground', 2, 1.1, 0.0, -1.0)
-    planning_scene.addCube('my_back_ground', 2, -1.2, 0.0, -1.0)
-    planning_scene.addCube('my_left_ground', 2, 0.0, 1.2, -1.0)
-    planning_scene.addCube('my_right_ground', 2, 0.0, -1.2, -1.0)
+        if 0:
+            logger.info('Creating PlanningSceneInterface...')
+            planning_scene = PlanningSceneInterface('base_link')
+            planning_scene.removeCollisionObject('my_front_ground')
+            planning_scene.removeCollisionObject('my_back_ground')
+            planning_scene.removeCollisionObject('my_right_ground')
+            planning_scene.removeCollisionObject('my_left_ground')
+            planning_scene.addCube('my_front_ground', 2, 1.1, 0.0, -1.0)
+            planning_scene.addCube('my_back_ground', 2, -1.2, 0.0, -1.0)
+            planning_scene.addCube('my_left_ground', 2, 0.0, 1.2, -1.0)
+            planning_scene.addCube('my_right_ground', 2, 0.0, -1.2, -1.0)
+            logger.info('PlanningSceneInterface ok')
 
     joint_names = [
         'torso_lift_joint', 'shoulder_pan_joint',
@@ -40,33 +46,43 @@ def setup_node():
 
     logger.info('FetchRobotGymEnv ROS node running')
 
-class FetchRobotEnv:
+class FetchRobotGymEnv:
     def __init__(self):
-        self.setup_node()
-        self.observation_space = Box(-1, 1, [joint_names.length])
-        self.action_space = Box(-1, 1, [joint_names.length])
+        self.observation_space = Box(-1, 1, [len(joint_names)])
+        self.action_space = Box(-1, 1, [len(joint_names)])
         self.reward_range = [-1,+1]
 
     def reset(self):
-        move_group.get_move_action().cancel_all_goals()
-        obs = np.array([0.0])
+        if 0:
+            move_group.get_move_action().cancel_all_goals()
+        obs = np.array([0 for x in joint_names])
         return obs
 
     def step(self, action):
+        logger.info('moveit action %s', action)
         move_group.moveToJointPosition(joint_names, action, wait=False)
         move_group.get_move_action().wait_for_result()
         result = move_group.get_move_action().get_result()
         logger.info('moveit result %s', result)
+        obs = np.array(result.trajectory_start.position) # FIXME
 
-        obs = np.array(result)
         reward = 0.0
         done = False
         info = {}
         return obs, reward, done, info
 
     def render(self, mode='human', close=False):
-        return np.zeros([24,32,3])
+        return np.zeros([240,320,3], dtype='uint8')
+
+    def close(self):
+        pass
+
+def make_env(name):
+    if name == 'FetchRobot-v0':
+        return FetchRobotGymEnv()
+    else:
+        raise Exception('Unknown env name %s' % name)
 
 setup_node()
-server.register(id='FetchRobot-v0', cls=FetchRobotEnv)
-server.serve_forever(port=9000)
+zmqs = server.GymProxyZmqServer('tcp://0.0.0.0:6911', make_env)
+zmqs.main_thr.run()

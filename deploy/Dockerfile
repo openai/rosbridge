@@ -14,6 +14,8 @@ RUN pip install -r gym/requirements.txt
 #COPY mujoco-py/requirements.txt mujoco-py/requirements.txt
 #RUN pip install -r mujoco-py/requirements.txt
 
+RUN apt-get install -y libav-tools
+
 ENV PYTHONPATH=/app:/app/gym:/app/mujoco-py:/app/kluster/lib:/app/tlbcore/common \
   MUJOCO_PY_BUNDLE_PATH=/app/gym/gym/envs/mujoco/mujoco-bundle \
   MUJOCO_PY_MJ_key_path=/app/.mujoco/mjkey.txt \
@@ -24,6 +26,6 @@ COPY . .
 
 WORKDIR /app/rosbridge
 
-EXPOSE 9000
+EXPOSE 6911
 
 #RUN ["/bin/bash", "-c", ". /opt/ros/indigo/setup.bash && catkin_make && catkin_make install"]

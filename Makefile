@@ -25,10 +25,10 @@ setup-package: force
 	echo "Results in /tmp/remote-rosbridge"
 
 remote-test-real: 	force | remote-build
-	ssh -L 9000:127.0.0.1:9000 -t $(REMOTE_DEVBOX) "docker run -p 9000:9000 -ti $(DOCKER_NAME):latest bash -c deploy/test-real-ep.sh"
+	ssh -L 6911:127.0.0.1:6911 -t $(REMOTE_DEVBOX) "docker run --privileged -p 6911:6911 -ti $(DOCKER_NAME):latest bash -c deploy/test-real-ep.sh"
 
 remote-test-sim: 	force | remote-build
-	ssh -L 9000:127.0.0.1:9000 -t $(REMOTE_DEVBOX) "docker run -p 9000:9000 -ti $(DOCKER_NAME):latest bash -x -c deploy/test-sim-ep.sh"
+	ssh -L 6911:127.0.0.1:6911 -t $(REMOTE_DEVBOX) "docker run --privileged -p 6911:6911 -ti $(DOCKER_NAME):latest bash -x -c deploy/test-sim-ep.sh"
 
 remote-test-shell: 	force | remote-build
-	ssh -L 9000:127.0.0.1:9000 -t $(REMOTE_DEVBOX) "docker run -p 9000:9000 -ti $(DOCKER_NAME):latest bash"
+	ssh -L 6911:127.0.0.1:6911 -t $(REMOTE_DEVBOX) "docker run --privileged -p 6911:6911 -ti $(DOCKER_NAME):latest bash"
