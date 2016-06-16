@@ -15,10 +15,10 @@ sleep 1
 
 roslaunch fetch_gazebo simulation.launch gui:=false headless:=true &
 roslaunch fetch_moveit_config move_group.launch &
-sleep 1
 
+sleep 1
 mkdir -p /root/.ros/log
 touch /root/.ros/log/FetchRobotGymEnv.log
 tail -F /root/.ros/log/*
 
-python src/rosbridge/src/fetch_proxy.py
+sleep 3600000

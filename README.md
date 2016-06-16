@@ -63,3 +63,7 @@ Demo:
 ## Fetch low level
   * Update position targets as fast as possible?
   *
+
+
+# Managing Fetch
+ * rviz crashes without a real monitor hooked up, unless you give it some fake data. Seems like a bug in Ogre. Use `rostools/setup-display.sh` to set it up

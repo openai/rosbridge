@@ -5,6 +5,7 @@ import gym
 from gym.spaces import Box, Tuple
 import gym.envs.proxy.server as server
 import rospy
+import pdb
 from moveit_msgs.msg import MoveItErrorCodes
 from moveit_python import MoveGroupInterface, PlanningSceneInterface
 
@@ -19,8 +20,6 @@ joint_names=None
 def setup_node():
     if 1:
         global move_group, planning_scene, joint_names
-        logger.info('Creating FetchRobotGymEnv node...')
-        rospy.init_node('FetchRobotGymEnv') # After this, logging goes to ~/.ros/log/FetchRobotGymEnv.log
         logger.info('Connected to ROS as FetchRobotGymEnv')
         if 1:
             move_group = MoveGroupInterface('arm_with_torso', 'base_link')
@@ -64,6 +63,7 @@ class FetchRobotGymEnv:
         move_group.get_move_action().wait_for_result()
         result = move_group.get_move_action().get_result()
         logger.info('moveit result %s', result)
+        pdb.set_trace()
         obs = np.array(result.trajectory_start.position) # FIXME
 
         reward = 0.0
@@ -83,6 +83,10 @@ def make_env(name):
     else:
         raise Exception('Unknown env name %s' % name)
 
-setup_node()
-zmqs = server.GymProxyZmqServer('tcp://0.0.0.0:6911', make_env)
-zmqs.main_thr.run()
+if __name__ == '__main__':
+    logger.info('Creating FetchRobotGymEnv node. argv=%s', sys.argv)
+    rospy.init_node('FetchRobotGymEnv') # After this, logging goes to ~/.ros/log/FetchRobotGymEnv.log
+    rospy.myargv(argv=sys.argv)
+    setup_node()
+    zmqs = server.GymProxyZmqServer('tcp://0.0.0.0:6911', make_env)
+    zmqs.run_main()

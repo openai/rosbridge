@@ -9,6 +9,7 @@ DOCKER_EXCLUDES += \
 	--exclude 'web/d3/test' \
 
 include ../kluster/make-docker.inc
+include ../kluster/make-utils.inc
 
 force :
 
@@ -30,5 +31,16 @@ remote-test-real: 	force | remote-build
 remote-test-sim: 	force | remote-build
 	ssh -L 6911:127.0.0.1:6911 -t $(REMOTE_DEVBOX) "docker run --privileged -p 6911:6911 -ti $(DOCKER_NAME):latest bash -x -c deploy/test-sim-ep.sh"
 
+remote-test-bg: 	force | remote-build
+	ssh -L 6911:127.0.0.1:6911 -t $(REMOTE_DEVBOX) "docker run --privileged -p 6911:6911 -ti $(DOCKER_NAME):latest bash -x -c deploy/test-bg.sh"
+
+
 remote-test-shell: 	force | remote-build
 	ssh -L 6911:127.0.0.1:6911 -t $(REMOTE_DEVBOX) "docker run --privileged -p 6911:6911 -ti $(DOCKER_NAME):latest bash"
+
+.PHONY : rsync-web
+docker-rsync.% : .gitfiles .gitsitchy
+	rsync -ai --inplace --relative --from0 --files-from .gitfiles -v -e 'bash deploy/docker-rsync.sh' . $*:.
+
+remote-rsync.% : .gitfiles .gitsitchy
+	cd $(HOME) && rsync -ai --inplace --relative $(DOCKER_EXCLUDES) $(EXPERIMENT_DIRS_HOMEREL) $*:.
