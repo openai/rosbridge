@@ -45,5 +45,8 @@ if __name__ == '__main__':
             if done:
                 break
         obsf = open(os.path.join(outdir, 'ep%d.pickle' % i), 'wb')
-        pickle.dump(allobs, obsf)
+        pickle.dump({
+            'observations': allobs,
+            'observation_space': env.observation_space,
+            }, obsf)
         obsf.close()
