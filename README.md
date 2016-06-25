@@ -67,3 +67,25 @@ Demo:
 
 # Managing Fetch
  * rviz crashes without a real monitor hooked up, unless you give it some fake data. Seems like a bug in Ogre. Use `rostools/setup-display.sh` to set it up
+
+
+
+Building the enhanced `fetchrobotics/robot_controllers`
+```
+cd $HOME
+mkdir -p catkin_ws/src
+cd catkin_ws/src
+ln -s /home/tlb/fetchrobotics/fetch_robots/fetch_bringup .
+ln -s /home/tlb/fetchrobotics/robot_controllers .
+wstool init
+cd ..
+. devel/setup.bash
+catkin_make
+catkin_make install
+sudo service robot stop
+sudo service robot start
+sudo less /var/log/upstart/robot.log
+
+rosservice call /arm_breaker true  # to check
+rosservice call /arm_breaker false && rosservice call /arm_breaker true  # to reset
+```

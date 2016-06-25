@@ -3,7 +3,7 @@
 default : docker-push
 
 # Danger: this looks in ~/.mujoco, so you need to have a linux binary and credentials there
-EXPERIMENT_EXTRA += $(HOME)/tlbcore ../gym ../mujoco-py ../kluster $(HOME)/.mujoco
+EXPERIMENT_EXTRA += $(HOME)/tlbcore ../gym ../mujoco-py ../kluster $(HOME)/.mujoco $(HOME)/fetchrobotics
 DOCKER_EXCLUDES += \
 	--exclude 'tlbcore/nodeif' \
 	--exclude 'web/d3/test' \

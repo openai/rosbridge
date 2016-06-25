@@ -1,16 +1,32 @@
 #!/usr/local/bin/python
+"""
+    A proxy to allow a Gym program to connect to a Fetch robot.
+
+    This program connects to the robot using ROS and both observes and controls the robot.
+
+    It runs continuously, accepting connections over zmq from a GymProxyClient, controlling
+    the robot for the duration of a session, and then accepting more connections.
+
+    It needs to have low latency both to the robot and the gym program. It works to run it on the robot,
+    but it may also work to run it on a nearby computer.
+
+    The Fetch robot is decribed at http://docs.fetchrobotics.com/robot_hardware.html
+
+"""
 import math, random, time, logging, re, base64, argparse, collections, sys, os, pdb, threading
 import numpy as np
 import gym
 from gym.spaces import Box, Tuple
 import gym.envs.proxy.server as server
 import rospy
+import actionlib
 from rospy.numpy_msg import numpy_msg
 from moveit_msgs.msg import MoveItErrorCodes
 from moveit_python import MoveGroupInterface, PlanningSceneInterface
 from sensor_msgs.msg import LaserScan, JointState, Image
 from fetch_driver_msgs.msg import GripperState #as GripperState
 from trajectory_msgs.msg import JointTrajectoryPoint, JointTrajectory
+from control_msgs.msg import PointHeadAction, PointHeadGoal
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -20,7 +36,6 @@ fetch_api = None
 class FetchRobotApi:
     def __init__(self, do_movement=False):
         self.do_movement = do_movement
-        self.use_rgb_camera = use_rgb_camera
 
         logger.info('Subscribing...')
         self.subs = []
@@ -30,6 +45,13 @@ class FetchRobotApi:
         self.subs.append(rospy.Subscriber('/head_camera/depth/image', numpy_msg(Image), self.head_camera_depth_image_cb))
         self.subs.append(rospy.Subscriber('/head_camera/rgb/image_raw', numpy_msg(Image), self.head_camera_rgb_image_raw_cb))
         logger.info('Subscribed')
+
+        self.arm_effort_pub = rospy.Publisher('/arm_controller/torque/command', JointTrajectory, queue_size=2)
+        #self.head_goal_pub = rospy.Publisher('/head_controller/point_head/goal', PointHeadActionGoal, queue_size=2)
+        #self.gripper_ctl_pub = rospy.Publisher('/gripper_controller/command', GripperCommand, queue_size=2)
+
+        self.head_point_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
+        #self.head_point_client.wait_for_server()
 
         self.move_group = None
         self.planning_scene = None
@@ -47,16 +69,22 @@ class FetchRobotApi:
                 self.planning_scene.addCube('my_left_ground', 2, 0.0, 1.2, -1.0)
                 self.planning_scene.addCube('my_right_ground', 2, 0.0, -1.2, -1.0)
 
+        # See http://docs.fetchrobotics.com/robot_hardware.html#naming-conventions
         self.joint_names = [
             'torso_lift_joint',
-            'bellows_joint',
-            'head_pan_joint', 'head_tilt_joint',
-            'shoulder_pan_joint', 'shoulder_lift_joint',
+            #'bellows_joint',
+            'head_pan_joint',
+            'head_tilt_joint',
+            'shoulder_pan_joint',
+            'shoulder_lift_joint',
             'upperarm_roll_joint',
             'elbow_flex_joint',
             'forearm_roll_joint',
-            'wrist_flex_joint', 'wrist_roll_joint',
-            'l_gripper_finger_joint', 'r_gripper_finger_joint']
+            'wrist_flex_joint',
+            'wrist_roll_joint',
+            'l_gripper_finger_joint',
+            #'r_gripper_finger_joint',
+            ]
         self.joint_name_map = dict([(name, index) for index, name in enumerate(self.joint_names)])
         self.cur_joint_pos = np.zeros([len(self.joint_names)])
         self.cur_joint_vel = np.zeros([len(self.joint_names)])
@@ -87,6 +115,9 @@ class FetchRobotApi:
         self.cur_head_camera_rgb_image = npdata
 
     def joint_states_cb(self, data):
+        """
+        Handle a joint_states message. Messages can have subsets of the joints, hopefully non-overlapping.
+        """
         for i in range(len(data.name)):
             name = data.name[i]
             jni = self.joint_name_map.get(name, -1)
@@ -94,6 +125,41 @@ class FetchRobotApi:
                 self.cur_joint_pos[jni] = data.position[i]
                 self.cur_joint_vel[jni] = data.velocity[i]
                 self.cur_joint_effort[jni] = data.effort[i]
+
+    def move_to_start(self):
+
+        # Look down
+        goal = PointHeadGoal()
+        goal.target.header.stamp = rospy.Time.now()
+        goal.target.header.frame_id = '/base_link'
+        goal.target.point.x = 1.0
+        goal.target.point.y = 0.0
+        goal.target.point.z = -1.0
+        goal.min_duration = rospy.Duration(1.0)
+        self.head_point_client.send_goal(goal)
+
+        if self.move_group is not None:
+            targ = np.zeros([len(self.api.joint_names)])
+            self.move_group.moveToJointPosition(self.api.joint_names, targ, wait=False)
+            self.move_group.wait_for_result()
+
+        self.head_point_client.wait_for_result()
+
+
+    def set_efforts(self, action):
+        arm_joints = [
+            ('shoulder_pan_joint', 1.57),
+            ('shoulder_lift_joint', 1.57),
+            ('upperarm_roll_joint', 1.57),
+            ('elbow_flex_joint', 1.57),
+            ('forearm_roll_joint', 1.57),
+            ('wrist_flex_joint', 2.26),
+            ('wrist_roll_joint', 2.26),
+        ]
+        arm_efforts = [action[self.joint_name_map.get(name)] * scale * 0.05 for name, scale in arm_joints]
+        arm_joint_names = [name for name, scane in arm_joints]
+        arm_msg = JointTrajectory(joint_names=arm_joint_names, points=[JointTrajectoryPoint(effort = arm_efforts)])
+        self.arm_effort_pub.publish(arm_msg)
 
 class FetchRobotGymEnv:
     def __init__(self, api, obs_joints=True, obs_lidar=False, obs_head_depth=True, obs_head_rgb=False, act_torques=True):
@@ -121,7 +187,7 @@ class FetchRobotGymEnv:
         self.action_space = Tuple(actparts)
 
         self.reward_range = [-1, +1]
-        self.tickrate = rospy.Rate(10)
+        self.tickrate = rospy.Rate(5)
 
     def _get_obs(self):
         obsparts = []
@@ -136,9 +202,7 @@ class FetchRobotGymEnv:
         return tuple(obsparts)
 
     def reset(self):
-        if self.api.move_group is not None:
-            targ = np.zeros([len(self.api.joint_names)])
-            self.api.move_group.moveToJointPosition(self.api.joint_names, targ, wait=True)
+        self.api.move_to_start()
         return self._get_obs()
 
     def step(self, action):
@@ -147,8 +211,8 @@ class FetchRobotGymEnv:
         self.tickrate.sleep()
         t1=time.time()
         logger.info('sleep %s %s', t1-t0, t1)
-        if self.api.move_group is not None:
-            self.api.move_group.moveToJointPosition(self.api.joint_names, action, wait=False)
+
+        self.api.set_efforts(action[0])
 
         obs = self._get_obs()
         reward = 0.0
@@ -157,6 +221,7 @@ class FetchRobotGymEnv:
         return obs, reward, done, info
 
     def render(self, mode='human', close=False):
+        # WRITEME: output this image to an avi encoder, return a compact URL reference
         return self.api.cur_head_camera_rgb_image
 
     def close(self):
