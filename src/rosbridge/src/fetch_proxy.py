@@ -26,7 +26,8 @@ from moveit_python import MoveGroupInterface, PlanningSceneInterface
 from sensor_msgs.msg import LaserScan, JointState, Image
 from fetch_driver_msgs.msg import GripperState #as GripperState
 from trajectory_msgs.msg import JointTrajectoryPoint, JointTrajectory
-from control_msgs.msg import PointHeadAction, PointHeadGoal
+from control_msgs.msg import PointHeadAction, PointHeadGoal, FollowJointTrajectoryAction, FollowJointTrajectoryGoal
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -34,40 +35,7 @@ logger.setLevel(logging.INFO)
 fetch_api = None
 
 class FetchRobotApi:
-    def __init__(self, do_movement=False):
-        self.do_movement = do_movement
-
-        logger.info('Subscribing...')
-        self.subs = []
-        self.subs.append(rospy.Subscriber('/base_scan', LaserScan, self.base_scan_cb))
-        self.subs.append(rospy.Subscriber('/joint_states', JointState, self.joint_states_cb))
-        self.subs.append(rospy.Subscriber('/joint_states', JointState, self.joint_states_cb))
-        self.subs.append(rospy.Subscriber('/head_camera/depth/image', numpy_msg(Image), self.head_camera_depth_image_cb))
-        self.subs.append(rospy.Subscriber('/head_camera/rgb/image_raw', numpy_msg(Image), self.head_camera_rgb_image_raw_cb))
-        logger.info('Subscribed')
-
-        self.arm_effort_pub = rospy.Publisher('/arm_controller/torque/command', JointTrajectory, queue_size=2)
-        #self.head_goal_pub = rospy.Publisher('/head_controller/point_head/goal', PointHeadActionGoal, queue_size=2)
-        #self.gripper_ctl_pub = rospy.Publisher('/gripper_controller/command', GripperCommand, queue_size=2)
-
-        self.head_point_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
-        #self.head_point_client.wait_for_server()
-
-        self.move_group = None
-        self.planning_scene = None
-        if self.do_movement:
-            self.move_group = MoveGroupInterface('arm_with_torso', 'base_link')
-            if 1:
-                logger.info('Creating PlanningSceneInterface...')
-                self.planning_scene = PlanningSceneInterface('base_link')
-                self.planning_scene.removeCollisionObject('my_front_ground')
-                self.planning_scene.removeCollisionObject('my_back_ground')
-                self.planning_scene.removeCollisionObject('my_right_ground')
-                self.planning_scene.removeCollisionObject('my_left_ground')
-                self.planning_scene.addCube('my_front_ground', 2, 1.1, 0.0, -1.0)
-                self.planning_scene.addCube('my_back_ground', 2, -1.2, 0.0, -1.0)
-                self.planning_scene.addCube('my_left_ground', 2, 0.0, 1.2, -1.0)
-                self.planning_scene.addCube('my_right_ground', 2, 0.0, -1.2, -1.0)
+    def __init__(self):
 
         # See http://docs.fetchrobotics.com/robot_hardware.html#naming-conventions
         self.joint_names = [
@@ -94,7 +62,47 @@ class FetchRobotApi:
         self.cur_head_camera_depth_image = np.zeros([480,640], dtype=np.float32)
         self.cur_head_camera_rgb_image = np.zeros([480,640,3], dtype=np.uint8)
 
+        logger.info('Subscribing...')
+        self.subs = []
+        self.subs.append(rospy.Subscriber('/base_scan', LaserScan, self.base_scan_cb))
+        self.subs.append(rospy.Subscriber('/joint_states', JointState, self.joint_states_cb))
+        self.subs.append(rospy.Subscriber('/joint_states', JointState, self.joint_states_cb))
+        self.subs.append(rospy.Subscriber('/head_camera/depth/image', numpy_msg(Image), self.head_camera_depth_image_cb))
+        self.subs.append(rospy.Subscriber('/head_camera/rgb/image_raw', numpy_msg(Image), self.head_camera_rgb_image_raw_cb))
+        logger.info('Subscribed')
+
+        self.arm_effort_pub = rospy.Publisher('/arm_controller/weightless_torque/command', JointTrajectory, queue_size=2)
+        #self.head_goal_pub = rospy.Publisher('/head_controller/point_head/goal', PointHeadActionGoal, queue_size=2)
+        #self.gripper_ctl_pub = rospy.Publisher('/gripper_controller/command', GripperCommand, queue_size=2)
+
+        self.head_point_client = actionlib.SimpleActionClient('head_controller/point_head', PointHeadAction)
+
+        self.arm_move_group = MoveGroupInterface("arm", "base_link", plan_only = True)
+        self.arm_trajectory_client = actionlib.SimpleActionClient("arm_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+        self.arm_trajectory_client.wait_for_server()
+
+
+        if 0:
+            logger.info('Creating MoveGroupInterface...')
+            self.move_group = MoveGroupInterface('arm_with_torso', 'base_link', plan_only = True)
+            logger.info('Created MoveGroupInterface')
+            if 0:
+                logger.info('Creating PlanningSceneInterface...')
+                self.planning_scene = PlanningSceneInterface('base_link')
+                self.planning_scene.removeCollisionObject('my_front_ground')
+                self.planning_scene.removeCollisionObject('my_back_ground')
+                self.planning_scene.removeCollisionObject('my_right_ground')
+                self.planning_scene.removeCollisionObject('my_left_ground')
+                self.planning_scene.addCube('my_front_ground', 2, 1.1, 0.0, -1.0)
+                self.planning_scene.addCube('my_back_ground', 2, -1.2, 0.0, -1.0)
+                self.planning_scene.addCube('my_left_ground', 2, 0.0, 1.2, -1.0)
+                self.planning_scene.addCube('my_right_ground', 2, 0.0, -1.2, -1.0)
+
+
         logger.warn('FetchRobotGymEnv ROS node running')
+
+        self.head_point_client.wait_for_server()
+        logger.warn('FetchRobotGymEnv ROS node connected')
 
     def base_scan_cb(self, data):
         # fmin replaces nans with 15
@@ -132,32 +140,63 @@ class FetchRobotApi:
         goal = PointHeadGoal()
         goal.target.header.stamp = rospy.Time.now()
         goal.target.header.frame_id = '/base_link'
-        goal.target.point.x = 1.0
+        goal.target.point.x = 1.5
         goal.target.point.y = 0.0
-        goal.target.point.z = -1.0
-        goal.min_duration = rospy.Duration(1.0)
+        goal.target.point.z = -0.2
+        goal.min_duration = rospy.Duration(0.5)
+        logger.info('Point head to %s...', goal);
         self.head_point_client.send_goal(goal)
+        logger.info('Point head sent')
 
-        if self.move_group is not None:
-            targ = np.zeros([len(self.api.joint_names)])
-            self.move_group.moveToJointPosition(self.api.joint_names, targ, wait=False)
-            self.move_group.wait_for_result()
-
-        self.head_point_client.wait_for_result()
-
-
-    def set_efforts(self, action):
-        arm_joints = [
-            ('shoulder_pan_joint', 1.57),
-            ('shoulder_lift_joint', 1.57),
-            ('upperarm_roll_joint', 1.57),
-            ('elbow_flex_joint', 1.57),
-            ('forearm_roll_joint', 1.57),
-            ('wrist_flex_joint', 2.26),
-            ('wrist_roll_joint', 2.26),
+        joints = [
+            'shoulder_pan_joint',
+            'shoulder_lift_joint',
+            'upperarm_roll_joint',
+            'elbow_flex_joint',
+            'forearm_roll_joint',
+            'wrist_flex_joint',
+            'wrist_roll_joint',
         ]
-        arm_efforts = [action[self.joint_name_map.get(name)] * scale * 0.05 for name, scale in arm_joints]
-        arm_joint_names = [name for name, scane in arm_joints]
+        pose = [0.0, +0.8, 0.0, -0.8, 0.0, 0.0, 0.0]
+        result = self.arm_move_group.moveToJointPosition(joints, pose, plan_only=True)
+        if result.error_code.val == MoveItErrorCodes.SUCCESS:
+            if 0: logger.info('Got trajectory %s', result.planned_trajectory)
+            follow_goal = FollowJointTrajectoryGoal()
+            follow_goal.trajectory = result.planned_trajectory.joint_trajectory
+            logger.info('sending trajectory to arm...')
+            self.arm_trajectory_client.send_goal(follow_goal)
+            result = self.arm_trajectory_client.wait_for_result()
+            logger.info('arm followed trajectory %s', result)
+        else:
+            logger.warn('moveToJointPosition returned %s', result)
+            return
+
+        result = self.head_point_client.wait_for_result()
+        logger.info('head followed trajectory %s', result)
+
+        logger.info('sending empty arm goal')
+        empty_goal = FollowJointTrajectoryGoal()
+        self.arm_trajectory_client.send_goal(empty_goal)
+
+
+        logger.info('Point head done')
+
+
+    def set_weightless_torque(self, action):
+        arm_joints = [
+            ('shoulder_pan_joint', 1.57, 33.82),
+            ('shoulder_lift_joint', 1.57, 131.76),
+            ('upperarm_roll_joint', 1.57, 76.94),
+            ('elbow_flex_joint', 1.57, 66.18),
+            ('forearm_roll_joint', 1.57, 29.35),
+            ('wrist_flex_joint', 2.26, 25.70),
+            ('wrist_roll_joint', 2.26, 7.36),
+        ]
+        arm_efforts = [min(1.0, max(-1.0, action[self.joint_name_map.get(name)])) * torque_scale * 0.25 for name, vel_scale, torque_scale in arm_joints]
+        arm_joint_names = [name for name, vel_scale, torque_scale in arm_joints]
+        if 1:
+            arm_joint_names.append('gravity_compensation')
+            arm_efforts.append(1.0)
         arm_msg = JointTrajectory(joint_names=arm_joint_names, points=[JointTrajectoryPoint(effort = arm_efforts)])
         self.arm_effort_pub.publish(arm_msg)
 
@@ -212,7 +251,7 @@ class FetchRobotGymEnv:
         t1=time.time()
         logger.info('sleep %s %s', t1-t0, t1)
 
-        self.api.set_efforts(action[0])
+        self.api.set_weightless_torque(action[0])
 
         obs = self._get_obs()
         reward = 0.0
@@ -242,6 +281,7 @@ if __name__ == '__main__':
     rospy.init_node('FetchRobotGymEnv') # After this, logging goes to ~/.ros/log/FetchRobotGymEnv.log
     logger.info('Starting API')
     fetch_api = FetchRobotApi()
+    fetch_api.move_to_start()
     if 1:
         logger.info('Starting Zmq')
         zmqs = server.GymProxyZmqServer('tcp://0.0.0.0:6911', make_env)
