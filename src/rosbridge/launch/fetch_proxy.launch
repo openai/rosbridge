@@ -1,0 +1,4 @@
+<launch>
+  <node name="rosbridge_fetch_proxy" pkg="rosbridge" type="fetch_proxy.py" respawn="false" output="screen">
+  </node>
+</launch>

@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/python
 """
     A proxy to allow a Gym program to connect to a Fetch robot.
 
