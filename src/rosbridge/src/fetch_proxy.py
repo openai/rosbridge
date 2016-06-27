@@ -226,7 +226,7 @@ class FetchRobotGymEnv:
         self.action_space = Tuple(actparts)
 
         self.reward_range = [-1, +1]
-        self.tickrate = rospy.Rate(5)
+        self.tickrate = rospy.Rate(10)
 
     def _get_obs(self):
         obsparts = []
