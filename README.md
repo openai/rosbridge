@@ -1,32 +1,10 @@
 # rosbridge
-Bridge from Gym to ROS robots
+Bridge from Gym to ROS robots.
 
+Runs as a ROS node (ie, start it with `roslaunch rosbridge fetch_proxy.launch`
 
-## Deployment
-
-There are two deployment types: a self-container docker which runs a simulation, and a docker that talks to a robot.
-
-
-```
-$ docker run -t -i quay.io/openai/rosbridge:latest /bin/bash
-# roscore &
-# vncserver
- ... enter password
-# export DISPLAY=:1
-# roslaunch fetch_gazebo simulation.launch
-# export ROS_MASTER_URI=http://`hostname`:11311
-# rosrun rviz rviz
-# roscd fetch_navigation/config
-# rviz -d navigation.rviz
-```
-
-
-## Fetch simulator
-
-Demo:
-```
-# roslaunch fetch_gazebo_demo demo.launch
-```
+Listens on a ZMQ socket and converts the action space to ROS commands, and the ROS sensors to an observation space
+suitable for OpenAI Gym.
 
 ### Challenges:
  * How to capture and replay rviz output? Can render return some sort of key into the log which can be rendered later on demand rather than in real-time?
@@ -42,10 +20,11 @@ Demo:
    - lidar scan [Ns x 1]
    - camera [Nh x Nv]
  * Action is a vector of
-   - joint target positions [Nj x 1]
+   - joint torques [Nj x 1]
    - forward velocity [1]
    - rotational velocity [1]
    - (other action spaces might be added)
+
 
 ### Ros Topics
   * Subscribe to `head_camera/depth_registered/points`, of type   [sensor_msgs/PointCloud2](http://docs.ros.org/api/sensor_msgs/html/msg/PointCloud2.html)
@@ -62,7 +41,6 @@ Demo:
 
 ## Fetch low level
   * Update position targets as fast as possible?
-  *
 
 
 # Managing Fetch
@@ -82,10 +60,12 @@ cd ..
 . devel/setup.bash
 catkin_make
 catkin_make install
-sudo service robot stop
-sudo service robot start
+sudo service robot stop && sleep 5 && sudo service robot start
 sudo less /var/log/upstart/robot.log
+```
 
+If the circuit breaker blows due to excess current draw, you can reset with
+```
 rosservice call /arm_breaker true  # to check
 rosservice call /arm_breaker false && rosservice call /arm_breaker true  # to reset
 ```
