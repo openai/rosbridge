@@ -3,13 +3,24 @@ import gym
 import numpy as np
 import cPickle as pickle
 
-class LoggingAgent(object):
+class ZeroAgent(object):
     def __init__(self, action_space):
         self.action_space = action_space
 
     def act(self, observation, reward, done):
-        return self.action_space.sample()
-        #return np.zeros(self.action_space.shape)
+        return np.zeros(self.action_space.shape)
+
+class RandomAgent(object):
+    def __init__(self, action_space):
+        self.action_space = action_space
+        self.cached_actions = []
+
+    def act(self, observation, reward, done):
+        if len(self.cached_actions) == 0:
+            a = self.action_space.sample()
+            for i in range(3):
+                self.cached_actions.append(a)
+        return self.cached_actions.pop()
 
 if __name__ == '__main__':
     logger = logging.getLogger()
@@ -20,7 +31,10 @@ if __name__ == '__main__':
     outdir = '/tmp/logobs'
     os.mkdir(outdir)
 
-    agent = LoggingAgent(env.action_space)
+    if 1:
+        agent = RandomAgent(env.action_space)
+    else:
+        agent = ZeroAgent(env.action_space)
 
     episode_count = 1
     max_steps = 100
@@ -44,7 +58,7 @@ if __name__ == '__main__':
         obsf = open(os.path.join(outdir, 'ep%d.pickle' % i), 'wb')
         pickle.dump({
             'observations': allobs,
-            'actions': allactions
+            'actions': allactions,
             'observation_space': env.observation_space,
             }, obsf)
         obsf.close()
