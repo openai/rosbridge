@@ -29,6 +29,7 @@ if __name__ == '__main__':
     env = gym.make('FetchRobotRGB-v0' if len(sys.argv)<2 else sys.argv[1])
 
     outdir = '/tmp/logobs'
+    os.system('rm -rf /tmp/logobs')
     os.mkdir(outdir)
 
     if 1:
@@ -37,7 +38,7 @@ if __name__ == '__main__':
         agent = ZeroAgent(env.action_space)
 
     episode_count = 1
-    max_steps = 100
+    max_steps = 20
     reward = 0
     done = False
 
@@ -62,3 +63,5 @@ if __name__ == '__main__':
             'observation_space': env.observation_space,
             }, obsf)
         obsf.close()
+
+    env.close()
