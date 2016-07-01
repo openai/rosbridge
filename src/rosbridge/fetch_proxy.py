@@ -296,10 +296,10 @@ class FetchRobotApi:
             ('upperarm_roll_joint', 1.57, 76.94),
             ('elbow_flex_joint', 1.57, 66.18),
             ('forearm_roll_joint', 1.57, 29.35),
-            ('wrist_flex_joint', 2.26, 55.70),
+            ('wrist_flex_joint', 2.26, 25.70),
             ('wrist_roll_joint', 2.26, 7.36),
         ]
-        arm_efforts = [min(1.0, max(-1.0, action[self.joint_name_map.get(name)])) * torque_scale * 0.25 for name, vel_scale, torque_scale in arm_joints]
+        arm_efforts = [min(1.0, max(-1.0, action[self.joint_name_map.get(name)])) * torque_scale * 0.35 for name, vel_scale, torque_scale in arm_joints]
         arm_joint_names = [name for name, vel_scale, torque_scale in arm_joints]
         if 1:
             arm_joint_names.append('gravity_compensation')
@@ -343,6 +343,7 @@ class FetchRobotGymEnv:
         obsparts = []
         if self.obs_joints:
             obsparts.append(Box(-4, +4, self.api.cur_joint_pos.shape))
+            obsparts.append(Box(-4, +4, self.api.cur_joint_vel.shape))
         if self.obs_lidar:
             obsparts.append(Box(0, +16.0, self.api.cur_base_scan.shape))
         if self.obs_head_depth:
