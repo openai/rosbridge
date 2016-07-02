@@ -151,6 +151,14 @@ class FetchRobotApi:
             ('action', 'double'),
             ('effort', 'double'),
         )
+
+        timeseq.add_channel('gripper_action', 'FetchGripperAction')
+        timeseq.add_schema('FetchGripperAction',
+            ('action', 'double'),
+            ('effort', 'double'),
+            ('pos', 'double'),
+        )
+
         timeseq.add_channel('head_camera_rgb', 'VideoFrame')
         timeseq.add_schema('VideoFrame',
             ('url', 'string'),
@@ -164,6 +172,7 @@ class FetchRobotApi:
         with self.timeseq_mutex:
             if self.timeseq is not None:
                 self.timeseq.close()
+                threading.Thread(target=self.timeseq.upload_s3).start()
                 self.timeseq = None
 
     def base_scan_cb(self, data):
@@ -311,7 +320,7 @@ class FetchRobotApi:
             if self.timeseq:
                 state = dict([(jn, {
                     '__type': 'WeightlessTorqueAction',
-                    'action': action[self.joint_name_map.get(name)],
+                    'action': action[self.joint_name_map.get(jn)],
                     'effort': arm_efforts[i],
                     }) for i, jn in enumerate(arm_joint_names)])
                 state['__type'] = 'FetchArmWeightlessTorqueAction'
@@ -330,6 +339,17 @@ class FetchRobotApi:
             goal.command.position = 0.1
 
         self.gripper_client.send_goal(goal)
+
+        with self.timeseq_mutex:
+            if self.timeseq:
+                state = {
+                    '__type': 'FetchGripperAction',
+                    'action': grip,
+                    'effort': goal.command.max_effort,
+                    'pos': goal.command.position,
+                }
+                self.timeseq.add(time.time(), 'gripper_action', state)
+
 
 class FetchRobotGymEnv:
     def __init__(self, api, obs_joints=True, obs_lidar=False, obs_head_depth=True, obs_head_rgb=False, act_torques=True):
@@ -398,8 +418,15 @@ class FetchRobotGymEnv:
         # WRITEME: output this image to an avi encoder, return a compact URL reference
         return self.api.cur_head_camera_rgb_image
 
-    def close(self):
+    def save_logs(self):
+        timeseq_url = None
+        if self.api.timeseq:
+            timeseq_url = self.api.timeseq.get_url()
+        logger.info('save_logs url=%s', timeseq_url)
         self.api.close_timeseq()
+        return timeseq_url
+
+    def close(self):
         self.api.move_to_start()
 
 
