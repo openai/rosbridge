@@ -10,6 +10,14 @@ class ZeroAgent(object):
     def act(self, observation, reward, done):
         return np.zeros(self.action_space.shape)
 
+class ConstantAgent(object):
+    def __init__(self, action_space, action):
+        self.action_space = action_space
+        self.action = np.array(action)
+
+    def act(self, observation, reward, done):
+        return (self.action,)
+
 class RandomAgent(object):
     def __init__(self, action_space):
         self.action_space = action_space
@@ -32,13 +40,23 @@ if __name__ == '__main__':
     os.system('rm -rf /tmp/logobs')
     os.mkdir(outdir)
 
-    if 1:
+    action = None
+    episode_count = 1
+    max_steps = 20
+    if len(sys.argv) > 2:
+        episode_count = int(sys.argv[2])
+    if len(sys.argv) > 3:
+        max_steps = int(sys.argv[3])
+    if len(sys.argv) > 4:
+        action = [float(x) for x in sys.argv[4].split(',')]
+
+    if action is not None:
+        agent = ConstantAgent(env.action_space, action)
+    elif 1:
         agent = RandomAgent(env.action_space)
     else:
         agent = ZeroAgent(env.action_space)
 
-    episode_count = 1
-    max_steps = 20
     reward = 0
     done = False
 
