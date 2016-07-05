@@ -11,66 +11,28 @@ A service implementing a bridge from Gym to ROS robots. Currently supports the [
  * See [Docs](http://docs.fetchrobotics.com/), especially the [API](http://docs.fetchrobotics.com/api_overview.html)
 
 ### FetchRobot-v0: Action and observation space
+ * Action is a tuple with
+  - an 8x1 vector of joint torques, in range [-1 .. +1] corresponding to the following joints:
+    - shoulder_pan_joint
+    - shoulder_lift_joint
+    - upperarm_roll_joint
+    - elbow_flex_joint
+    - forearm_roll_joint
+    - wrist_flex_joint
+    - wrist_roll_joint
+    - l_gripper_finger_joint
  * Observation is a tuple of
-   - joint angles [Nj x 1]
-   - kinematic coordinates [Nb x 12]
-   - measured joint torques [Nj x 1]
-   - camera [Nh x Nv] floats
- * Action is a vector of
-   - joint torques [Nj x 1]
-   - (other action spaces might be added)
+  - An 8x1 vector of joint angles in range [-4 .. +4]
+  - An 8x1 vector of joint velocities in range [-4 .. +4]
+  - A 480x640 array of floats representing distance in meters
 
 ### FetchRobotRGB-v0: Action and observation space
-* Observation is a tuple of
-  - joint angles [Nj x 1]
-  - kinematic coordinates [Nb x 12]
-  - measured joint torques [Nj x 1]
-  - camera [Nh x Nv x 3] uint8s
-* Action is a vector of
-  - joint torques [Nj x 1]
-  - (other action spaces might be added)
+ * Action: (same as FetchRobot-v0)
+ * Observation is a tuple of
+  - An 8x1 vector of joint angles in range [-4 .. +4] representing radians
+  - An 8x1 vector of joint velocities in range [-4 .. +4] representing radians/sec
+  - A 480x640x3 array of uint8s representing RGB pixel values
 
 
 ### Installation on a Fetch:
-Building the enhanced `fetchrobotics/robot_controllers`
-```sh
-cd $HOME
-mkdir -p catkin_ws/src
-cd catkin_ws/src
-ln -s ~/openai/fetch_robots/fetch_bringup .
-ln -s ~/openai/robot_controllers .
-wstool init
-cd ..
-. devel/setup.bash
-catkin_make
-catkin_make install
-```
-
-Configuration: edit /etc/ros/indigo/robot.launch to look more like [fetch.launch from the torque-control branch of fetch_robots](https://github.com/openai/fetch_robots/blob/torque-control/fetch_bringup/launch/fetch.launch)
-
-Edit /etc/init.robot.conf to look like:
-```sh
-env ROS_LOG_DIR=/var/log/ros
-
-start on roscore_is_up
-stop on roscore_is_down
-
-respawn
-
-script
-    #exec su ros -c ". /opt/ros/indigo/setup.bash && roslaunch /etc/ros/indigo/robot.launch"
-    exec su ros -c ". /home/tlb/catkin_ws/devel/setup.bash && roslaunch /etc/ros/indigo/robot.launch"
-end script
-```
-
-Restart:
-```sh
-sudo service robot stop && sleep 5 && sudo service robot start
-sudo less /var/log/upstart/robot.log # see if everything worked
-```
-
-If the circuit breaker blows due to excess current draw, you can reset with
-```sh
-rosservice call /arm_breaker true  # to check
-rosservice call /arm_breaker false && rosservice call /arm_breaker true  # to reset
-```
+See https://github.com/openai/fetch-config for installation scripts

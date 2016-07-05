@@ -386,6 +386,7 @@ class FetchRobotGymEnv:
         obsparts = []
         if self.obs_joints:
             obsparts.append(self.api.cur_joint_pos)
+            obsparts.append(self.api.cur_joint_vel)
         if self.obs_lidar:
             obsparts.append(self.api.cur_base_scan)
         if self.obs_head_depth:
