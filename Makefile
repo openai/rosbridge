@@ -1,6 +1,6 @@
 
 
-default : force
+default :
 
 # Danger: this looks in ~/.mujoco, so you need to have a linux binary and credentials there
 EXPERIMENT_EXTRA += $(HOME)/tlbcore ../gym ../mujoco-py ../kluster $(HOME)/.mujoco $(HOME)/fetchrobotics $(HOME)/ur
