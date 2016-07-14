@@ -175,6 +175,21 @@ class FetchRobotApi:
                 threading.Thread(target=self.timeseq.upload_s3).start()
                 self.timeseq = None
 
+    def start_axis_video(self):
+        cameras = rospy.get_param('/axis_cameras')
+        if cameras and len(cameras):
+            with self.timeseq_mutex:
+                if self.timeseq:
+                    for name, info in cameras.items():
+                        logging.info('Camera %s: %s', name, repr(info))
+                        self.timeseq.start_axis_video(timeseq_name = name, **info)
+
+    def stop_axis_video(self):
+        with self.timeseq_mutex:
+            if self.timeseq:
+                self.timeseq.stop_axis_video()
+
+
     def base_scan_cb(self, data):
         # fmin replaces nans with 15
         self.cur_base_scan = np.fmin(np.array(data.ranges), 15.0)
@@ -256,9 +271,9 @@ class FetchRobotApi:
         goal.target.point.y = 0.0
         goal.target.point.z = -0.2
         goal.min_duration = rospy.Duration(0.5)
-        logger.info('Point head to %s...', goal);
+        if 0: logger.info('Point head to %s...', goal);
         self.head_point_client.send_goal(goal)
-        logger.info('Point head sent')
+        if 0: logger.info('Point head sent')
 
         goal = GripperCommandGoal()
         goal.command.max_effort = 60
@@ -308,7 +323,7 @@ class FetchRobotApi:
             ('wrist_flex_joint', 2.26, 25.70),
             ('wrist_roll_joint', 2.26, 7.36),
         ]
-        arm_efforts = [min(1.0, max(-1.0, action[self.joint_name_map.get(name)])) * torque_scale * 0.35 for name, vel_scale, torque_scale in arm_joints]
+        arm_efforts = [min(1.0, max(-1.0, action[self.joint_name_map.get(name)])) * torque_scale * 0.75 for name, vel_scale, torque_scale in arm_joints]
         arm_joint_names = [name for name, vel_scale, torque_scale in arm_joints]
         if 1:
             arm_joint_names.append('gravity_compensation')
@@ -351,6 +366,7 @@ class FetchRobotApi:
                 self.timeseq.add(time.time(), 'gripper_action', state)
 
 
+
 class FetchRobotGymEnv:
     def __init__(self, api, obs_joints=True, obs_lidar=False, obs_head_depth=True, obs_head_rgb=False, act_torques=True):
         self.api = api
@@ -381,6 +397,7 @@ class FetchRobotGymEnv:
         self.tickrate = rospy.Rate(10)
 
         self.api.start_timeseq()
+        self.api.start_axis_video()
 
     def _get_obs(self):
         obsparts = []
@@ -401,10 +418,10 @@ class FetchRobotGymEnv:
 
     def step(self, action):
         # Wait here for 100mS since the last time
-        t0=time.time()
+        t0 = time.time()
         self.tickrate.sleep()
-        t1=time.time()
-        logger.info('sleep %s %s', t1-t0, t1)
+        t1 = time.time()
+        if 0: logger.info('sleep %s %s', t1-t0, t1)
 
         self.api.set_arm_action(action[0])
         self.api.set_gripper_action(action[0])
@@ -424,6 +441,7 @@ class FetchRobotGymEnv:
         if self.api.timeseq:
             timeseq_url = self.api.timeseq.get_url()
         logger.info('save_logs url=%s', timeseq_url)
+        self.api.stop_axis_video()
         self.api.close_timeseq()
         return timeseq_url
 
