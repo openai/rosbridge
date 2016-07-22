@@ -182,7 +182,13 @@ class FetchRobotApi:
                 if self.timeseq:
                     for name, info in cameras.items():
                         logging.info('Camera %s: %s', name, repr(info))
-                        self.timeseq.start_axis_video(timeseq_name = name, **info)
+                        self.timeseq.start_axis_video(timeseq_name = name,
+                            auth_header=info.get('auth_header'),
+                            daemon_endpoint=info.get('daemon_endpoint'),
+                            ipaddr=info.get('ipaddr'),
+                            local_link_prefix=info.get('local_link_prefix'),
+                            remote_traces_dir=info.get('remote_traces_dir'),
+                            resolution=info.get('resolution'))
 
     def stop_axis_video(self):
         with self.timeseq_mutex:
