@@ -24,10 +24,11 @@ import actionlib
 from rospy.numpy_msg import numpy_msg
 from moveit_msgs.msg import MoveItErrorCodes
 from moveit_python import MoveGroupInterface, PlanningSceneInterface
-from sensor_msgs.msg import LaserScan, JointState, Image
-from fetch_driver_msgs.msg import GripperState #as GripperState
+from sensor_msgs.msg import LaserScan, JointState, Image, Joy
+from fetch_driver_msgs.msg import GripperState
 from trajectory_msgs.msg import JointTrajectoryPoint, JointTrajectory
 from control_msgs.msg import PointHeadAction, PointHeadGoal, FollowJointTrajectoryAction, FollowJointTrajectoryGoal, GripperCommandGoal, GripperCommandAction
+from geometry_msgs.msg import Twist
 from timeseq import TimeseqWriter
 import PIL.Image
 
@@ -38,6 +39,9 @@ fetch_api = None
 
 class FetchRobotApi:
     def __init__(self):
+
+        self.moving_mode = False
+        self.waldo_mode = False
 
         # See http://docs.fetchrobotics.com/robot_hardware.html#naming-conventions
         self.joint_names = [
@@ -77,11 +81,15 @@ class FetchRobotApi:
         if 0: self.subs.append(rospy.Subscriber('/base_scan', LaserScan, self.base_scan_cb))
         if 1: self.subs.append(rospy.Subscriber('/head_camera/depth/image', numpy_msg(Image), self.head_camera_depth_image_cb))
         if 1: self.subs.append(rospy.Subscriber('/head_camera/rgb/image_raw', numpy_msg(Image), self.head_camera_rgb_image_raw_cb))
+        if 1: self.subs.append(rospy.Subscriber('/spacenav/joy', Joy, self.spacenav_joy_cb))
         logger.info('Subscribed')
 
         self.arm_effort_pub = rospy.Publisher('/arm_controller/weightless_torque/command', JointTrajectory, queue_size=2)
         #self.head_goal_pub = rospy.Publisher('/head_controller/point_head/goal', PointHeadActionGoal, queue_size=2)
         self.gripper_client = actionlib.SimpleActionClient('gripper_controller/gripper_action', GripperCommandAction)
+
+        self.arm_cartesian_twist_pub = rospy.Publisher('/arm_controller/cartesian_twist/command', Twist, queue_size=2)
+
 
         self.head_point_client = actionlib.SimpleActionClient('head_controller/point_head', PointHeadAction)
 
@@ -269,6 +277,7 @@ class FetchRobotApi:
 
     def move_to_start(self):
 
+        self.moving_mode = True
         # Look down
         goal = PointHeadGoal()
         goal.target.header.stamp = rospy.Time.now()
@@ -317,6 +326,7 @@ class FetchRobotApi:
         self.arm_trajectory_client.send_goal(empty_goal)
 
         logger.info('Point head done')
+        self.moving_mode = False
 
 
     def set_arm_action(self, action):
@@ -371,7 +381,20 @@ class FetchRobotApi:
                 }
                 self.timeseq.add(time.time(), 'gripper_action', state)
 
+    def set_waldo_action(self, joy):
+        twist = Twist()
+        twist.linear.x = joy.axes[0]
+        twist.linear.y = joy.axes[1]
+        twist.linear.z = joy.axes[2]
+        twist.angular.x = joy.axes[3]
+        twist.angular.y = joy.axes[4]
+        twist.angular.z = joy.axes[5]
+        self.arm_cartesian_twist_pub.publish(twist)
 
+    def spacenav_joy_cb(self, joy):
+        logger.info('joy %s', str(joy))
+        if self.waldo_mode and not self.moving_mode:
+            self.set_waldo_action(joy)
 
 class FetchRobotGymEnv:
     def __init__(self, api, obs_joints=True, obs_lidar=False, obs_head_depth=True, obs_head_rgb=False, act_torques=True):
