@@ -42,6 +42,7 @@ class FetchRobotApi:
 
         self.moving_mode = False
         self.waldo_mode = False
+        self.prev_joy_buttons = 0
 
         # See http://docs.fetchrobotics.com/robot_hardware.html#naming-conventions
         self.joint_names = [
@@ -120,8 +121,8 @@ class FetchRobotApi:
         self.head_point_client.wait_for_server()
         logger.warn('FetchRobotGymEnv ROS node connected')
 
-    def start_timeseq(self):
-        timeseq = TimeseqWriter.create('fetch')
+    def start_timeseq(self, script):
+        timeseq = TimeseqWriter.create(script)
         timeseq.add_channel('robot_joints', 'FetchRobotJoints')
         timeseq.add_channel('gripper_joints', 'FetchGripperJoints')
 
@@ -386,15 +387,53 @@ class FetchRobotApi:
         twist.linear.x = joy.axes[0]
         twist.linear.y = joy.axes[1]
         twist.linear.z = joy.axes[2]
-        twist.angular.x = joy.axes[3]
-        twist.angular.y = joy.axes[4]
-        twist.angular.z = joy.axes[5]
+        twist.angular.x = +3.0*joy.axes[3]
+        twist.angular.y = +3.0*joy.axes[4]
+        twist.angular.z = +2.0*joy.axes[5]
         self.arm_cartesian_twist_pub.publish(twist)
 
+        if joy.buttons[1] and not self.prev_joy_buttons[1]:
+            goal = GripperCommandGoal()
+            goal.command.max_effort = 60
+            goal.command.position = 0.0
+            self.gripper_client.send_goal(goal)
+        elif not joy.buttons[1] and self.prev_joy_buttons[1]:
+            goal = GripperCommandGoal()
+            goal.command.max_effort = 60
+            goal.command.position = 0.1
+            self.gripper_client.send_goal(goal)
+
     def spacenav_joy_cb(self, joy):
-        logger.info('joy %s', str(joy))
+        if 0: logger.info('joy %s', str(joy))
+        if joy.buttons[0] and not self.prev_joy_buttons[0]:
+            if self.waldo_mode:
+                self.stop_waldo_mode()
+            elif not self.moving_mode:
+                self.start_waldo_mode()
+
         if self.waldo_mode and not self.moving_mode:
             self.set_waldo_action(joy)
+        self.prev_joy_buttons = joy.buttons
+
+    def start_waldo_mode(self):
+        logger.info('Start waldo mode');
+        self.waldo_mode = True
+        self.start_timeseq('fetchwaldo')
+        self.start_axis_video()
+
+    def stop_waldo_mode(self):
+        logger.info('Stop waldo mode');
+        self.waldo_mode = False
+        timeseq_url = None
+        if self.timeseq:
+            timeseq_url = self.timeseq.get_url()
+        logger.info('save_logs url=%s', timeseq_url)
+        self.stop_axis_video()
+        self.close_timeseq()
+
+        mts_thread = threading.Thread(target=self.move_to_start)
+        mts_thread.daemon = True
+        mts_thread.start()
 
 class FetchRobotGymEnv:
     def __init__(self, api, obs_joints=True, obs_lidar=False, obs_head_depth=True, obs_head_rgb=False, act_torques=True):
@@ -425,7 +464,7 @@ class FetchRobotGymEnv:
         self.reward_range = [-1, +1]
         self.tickrate = rospy.Rate(10)
 
-        self.api.start_timeseq()
+        self.api.start_timeseq('fetch')
         self.api.start_axis_video()
 
     def _get_obs(self):
