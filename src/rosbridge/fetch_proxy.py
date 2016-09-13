@@ -340,14 +340,14 @@ class FetchRobotApi:
             'wrist_flex_joint',
             'wrist_roll_joint',
         ]
-        plan_result = self.arm_move_group.moveToJointPosition(joints, position, plan_only=True)
-        if plan_result.error_code.val == MoveItErrorCodes.SUCCESS:
-            if 0: logger.info('Got trajectory %s', plan_result.planned_trajectory)
+        result = self.arm_move_group.moveToJointPosition(joints, position, plan_only=True)
+        if result.error_code.val == MoveItErrorCodes.SUCCESS:
+            if 0: logger.info('Got trajectory %s', result.planned_trajectory)
             follow_goal = FollowJointTrajectoryGoal()
-            follow_goal.trajectory = plan_result.planned_trajectory.joint_trajectory
+            follow_goal.trajectory = result.planned_trajectory.joint_trajectory
             logger.info('sending trajectory to arm...')
             self.arm_trajectory_client.send_goal(follow_goal)
-            plan_result = self.arm_trajectory_client.wait_for_result()
+            result = self.arm_trajectory_client.wait_for_result()
             logger.info('arm followed trajectory %s', result)
         else:
             logger.warn('moveToJointPosition returned %s', result)
