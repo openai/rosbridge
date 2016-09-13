@@ -329,6 +329,36 @@ class FetchRobotApi:
         logger.info('Point head done')
         self.moving_mode = False
 
+    def set_arm_position(self, position):
+        self.moving_mode = True
+        joints = [
+            'shoulder_pan_joint',
+            'shoulder_lift_joint',
+            'upperarm_roll_joint',
+            'elbow_flex_joint',
+            'forearm_roll_joint',
+            'wrist_flex_joint',
+            'wrist_roll_joint',
+        ]
+        plan_result = self.arm_move_group.moveToJointPosition(joints, position, plan_only=True)
+        if plan_result.error_code.val == MoveItErrorCodes.SUCCESS:
+            if 0: logger.info('Got trajectory %s', plan_result.planned_trajectory)
+            follow_goal = FollowJointTrajectoryGoal()
+            follow_goal.trajectory = plan_result.planned_trajectory.joint_trajectory
+            logger.info('sending trajectory to arm...')
+            self.arm_trajectory_client.send_goal(follow_goal)
+            plan_result = self.arm_trajectory_client.wait_for_result()
+            logger.info('arm followed trajectory %s', result)
+        else:
+            logger.warn('moveToJointPosition returned %s', result)
+            return
+        logger.info('sending empty arm goal')
+        empty_goal = FollowJointTrajectoryGoal()
+        self.arm_trajectory_client.send_goal(empty_goal)
+
+        logger.info('Point head done')
+        self.moving_mode = False
+
 
     def set_arm_action(self, action):
         arm_joints = [
@@ -459,6 +489,9 @@ class FetchRobotGymEnv:
         actparts = []
         if self.act_torques:
             actparts.append(Box(-1.0, +1.0, [len(self.api.joint_names)]))
+        else:
+            actparts.append(Box(-4, +4, self.api.cur_joint_pos.shape))
+
         self.action_space = Tuple(actparts)
 
         self.reward_range = [-1, +1]
@@ -491,8 +524,11 @@ class FetchRobotGymEnv:
         t1 = time.time()
         if 0: logger.info('sleep %s %s', t1-t0, t1)
 
-        self.api.set_arm_action(action[0])
-        self.api.set_gripper_action(action[0])
+        if(self.act_torques):
+            self.api.set_arm_action(action[0])
+            self.api.set_gripper_action(action[0])
+        else:
+            self.api.set_arm_position(action[0])
 
         obs = self._get_obs()
         reward = 0.0
@@ -523,6 +559,8 @@ def make_env(name):
         return FetchRobotGymEnv(fetch_api)
     elif name == 'FetchRobotRGB-v0':
         return FetchRobotGymEnv(fetch_api, obs_head_depth=False, obs_head_rgb=True)
+    elif name == 'FetchRobotRGB-pos':
+        return FetchRobotGymEnv(fetch_api, obs_head_depth=False, obs_head_rgb=True, act_torques=False)
     else:
         raise Exception('Unknown env name %s' % name)
 
