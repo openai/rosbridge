@@ -559,7 +559,7 @@ def make_env(name):
         return FetchRobotGymEnv(fetch_api)
     elif name == 'FetchRobotRGB-v0':
         return FetchRobotGymEnv(fetch_api, obs_head_depth=False, obs_head_rgb=True)
-    elif name == 'FetchRobotRGB-pos-v0':
+    elif name == 'FetchRobotRGB_pos-v0':
         return FetchRobotGymEnv(fetch_api, obs_head_depth=False, obs_head_rgb=True, act_torques=False)
     else:
         raise Exception('Unknown env name %s' % name)
