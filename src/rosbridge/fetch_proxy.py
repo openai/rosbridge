@@ -17,8 +17,8 @@ import math, random, time, logging, re, base64, argparse, collections, sys, os, 
 import numpy as np
 from cStringIO import StringIO
 import gym
+import gym_proxy.envs.proxy.server as server
 from gym.spaces import Box, Tuple
-import gym.envs.proxy.server as server
 import rospy
 import actionlib
 from rospy.numpy_msg import numpy_msg
