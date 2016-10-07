@@ -1,4 +1,6 @@
-# rosbridge
+This repo is deprecated. Go to https://github.com/openai/fetch_setup instead.
+
+# DEPRECATED rosbridge
 A service implementing a bridge from Gym to ROS robots. Currently supports the [Fetch Research Robot](http://docs.fetchrobotics.com/)
 
  - Runs as a [ROS](http://www.ros.org) node (ie, start it with `roslaunch rosbridge fetch_proxy.launch`.
