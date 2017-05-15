@@ -1,4 +1,6 @@
 # rosbridge
+**Warning: abandoned in Oct 2016, when we changed to a different system. It might be a good starting point for using a Fetch robot from Gym, but nobody at OpenAI is maintaining it**
+
 A service implementing a bridge from Gym to ROS robots. Currently supports the [Fetch Research Robot](http://docs.fetchrobotics.com/)
 
  - Runs as a [ROS](http://www.ros.org) node (ie, start it with `roslaunch rosbridge fetch_proxy.launch`.
