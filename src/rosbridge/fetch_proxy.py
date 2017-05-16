@@ -29,7 +29,7 @@ from fetch_driver_msgs.msg import GripperState
 from trajectory_msgs.msg import JointTrajectoryPoint, JointTrajectory
 from control_msgs.msg import PointHeadAction, PointHeadGoal, FollowJointTrajectoryAction, FollowJointTrajectoryGoal, GripperCommandGoal, GripperCommandAction
 from geometry_msgs.msg import Twist
-from rosbridge.timeseq import TimeseqWriter
+from timeseq import TimeseqWriter
 import PIL.Image
 
 logger = logging.getLogger(__name__)
