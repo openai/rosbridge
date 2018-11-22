@@ -1,3 +1,5 @@
+**Status:** Archive (code is provided as-is, no updates expected)
+
 # rosbridge
 **Warning: abandoned in Oct 2016, when we changed to a different system. It might be a good starting point for using a Fetch robot from Gym, but nobody at OpenAI is maintaining it**
 
